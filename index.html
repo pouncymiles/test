@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+  <title>Realm Forge – Fantasy Map Generator</title>
+  <meta name="description" content="Generate a fantasy world map, edit nation territories along rivers and mountains, and sketch resources on a toggleable layer. Works on iOS, iPadOS, macOS and Windows." />
+  <meta name="theme-color" content="#1f2a3d" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Realm Forge" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header id="topbar">
+    <div class="brand"><span class="logo">🗺</span><span>Realm Forge</span></div>
+    <nav class="modes" role="tablist">
+      <button class="mode-btn active" data-mode="map" role="tab">Territories</button>
+      <button class="mode-btn" data-mode="resources" role="tab">Resources</button>
+    </nav>
+    <div class="actions">
+      <button id="btn-undo" title="Undo (Ctrl/⌘+Z)">↶</button>
+      <button id="btn-redo" title="Redo (Ctrl/⌘+Shift+Z)">↷</button>
+      <button id="btn-generate" class="accent">✨<span class="label"> Generate</span></button>
+      <button id="btn-file" title="Save, load, export">💾</button>
+      <button id="btn-help" title="Help">?</button>
+      <button id="btn-panel" title="Show / hide tools" class="mobile-only">🧰</button>
+    </div>
+  </header>
+
+  <main>
+    <aside id="panel">
+      <!-- Territories -->
+      <section id="panel-map" class="panel-section">
+        <h3>Nations</h3>
+        <ul id="nation-list" class="nation-list"></ul>
+        <div class="row">
+          <button id="btn-add-nation">+ Add nation</button>
+          <button id="btn-auto-nations" title="Re-run automatic nation placement">🎲 Auto</button>
+        </div>
+
+        <h3>Tools</h3>
+        <div class="tool-grid" id="map-tools">
+          <button class="tool" data-tool="pan" title="Pan / zoom">✋<small>Pan</small></button>
+          <button class="tool active" data-tool="fill" title="Tap a region to claim it for the active nation. Fill stops at coast, selected landmarks and drawn boundaries.">🪣<small>Fill</small></button>
+          <button class="tool" data-tool="brush" title="Paint territory with a round brush">🖌<small>Brush</small></button>
+          <button class="tool" data-tool="landmark" title="Tap rivers or mountain ranges to use them as borders">⛰<small>Landmark</small></button>
+          <button class="tool" data-tool="freehand" title="Draw a boundary line freehand">✍️<small>Freehand</small></button>
+          <button class="tool" data-tool="lines" title="Tap points to draw straight boundary lines; double-tap or press Finish to end">📐<small>Lines</small></button>
+          <button class="tool" data-tool="erase-boundary" title="Tap a drawn boundary line to remove it">🧽<small>Erase line</small></button>
+        </div>
+        <div class="field" id="brush-field">
+          <label>Brush size <span id="brush-size-val">4</span></label>
+          <input id="brush-size" type="range" min="1" max="14" value="4" />
+        </div>
+
+        <h3>Natural borders</h3>
+        <label class="check"><input type="checkbox" id="chk-same-owner" checked /> Fill stays within the tapped territory</label>
+        <label class="check"><input type="checkbox" id="chk-rivers" /> All rivers block filling</label>
+        <label class="check"><input type="checkbox" id="chk-ranges" /> All mountain ranges block filling</label>
+        <p class="muted">Or use the Landmark tool to pick specific rivers and ranges (highlighted in orange).</p>
+        <div class="row">
+          <button id="btn-clear-selection">Clear landmarks</button>
+          <button id="btn-clear-boundaries">Clear drawn lines</button>
+        </div>
+      </section>
+
+      <!-- Resources -->
+      <section id="panel-resources" class="panel-section hidden">
+        <h3>Resource layer</h3>
+        <label class="check"><input type="checkbox" id="chk-res-visible" checked /> Show layer</label>
+        <div class="field">
+          <label>Opacity <span id="res-opacity-val">100%</span></label>
+          <input id="res-opacity" type="range" min="10" max="100" value="100" />
+        </div>
+
+        <h3>Tools</h3>
+        <div class="tool-grid" id="res-tools">
+          <button class="tool" data-tool="pan">✋<small>Pan</small></button>
+          <button class="tool active" data-tool="pen">🖊<small>Pen</small></button>
+          <button class="tool" data-tool="shape">◆<small>Shape</small></button>
+          <button class="tool" data-tool="eraser">🧽<small>Eraser</small></button>
+        </div>
+
+        <h3>Colour</h3>
+        <div class="palette" id="palette"></div>
+        <div class="row">
+          <label class="inline">Custom <input type="color" id="custom-color" value="#e6194b" /></label>
+        </div>
+
+        <div class="field" id="pen-field">
+          <label>Pen width <span id="pen-width-val">3</span></label>
+          <input id="pen-width" type="range" min="1" max="20" value="3" />
+        </div>
+
+        <div id="shape-field">
+          <h3>Shape</h3>
+          <div class="shape-grid" id="shape-grid"></div>
+          <div class="field">
+            <label>Shape size <span id="shape-size-val">14</span></label>
+            <input id="shape-size" type="range" min="4" max="48" value="14" />
+          </div>
+        </div>
+        <div class="row">
+          <button id="btn-clear-resources">Clear layer</button>
+        </div>
+      </section>
+    </aside>
+
+    <div id="stage">
+      <canvas id="map"></canvas>
+      <div id="linebar" class="floating hidden">
+        <span id="linebar-text">Tap to add points</span>
+        <button id="btn-line-undo">Undo point</button>
+        <button id="btn-line-finish" class="accent">Finish</button>
+        <button id="btn-line-cancel">Cancel</button>
+      </div>
+      <div id="hint" class="floating"></div>
+      <div id="zoombar" class="floating">
+        <button id="btn-zoom-out">−</button>
+        <button id="btn-zoom-fit">⤢</button>
+        <button id="btn-zoom-in">+</button>
+      </div>
+    </div>
+  </main>
+
+  <dialog id="gen-dialog">
+    <form method="dialog">
+      <h2>Generate a world</h2>
+      <div class="field">
+        <label>Seed</label>
+        <div class="row"><input id="gen-seed" type="text" /><button type="button" id="gen-random">🎲</button></div>
+      </div>
+      <div class="field">
+        <label>Template</label>
+        <select id="gen-template">
+          <option value="continent">Continent</option>
+          <option value="pangea">Pangea</option>
+          <option value="islands">Islands</option>
+          <option value="archipelago">Archipelago</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Land coverage <span id="gen-land-val">42%</span></label>
+        <input id="gen-land" type="range" min="15" max="75" value="42" />
+      </div>
+      <div class="field">
+        <label>Nations <span id="gen-nations-val">8</span></label>
+        <input id="gen-nations" type="range" min="0" max="18" value="8" />
+      </div>
+      <p class="muted">Generating replaces the current map, territories and drawn lines (resources are kept).</p>
+      <menu>
+        <button value="cancel">Cancel</button>
+        <button value="ok" class="accent" id="gen-ok">Generate</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <dialog id="file-dialog">
+    <form method="dialog">
+      <h2>Save &amp; export</h2>
+      <p class="muted">Your map autosaves in this browser. Use a file to move it between devices.</p>
+      <div class="stack">
+        <button type="button" id="file-save">⬇ Save map file (.json)</button>
+        <button type="button" id="file-load">⬆ Load map file</button>
+        <button type="button" id="file-png">🖼 Export image (.png)</button>
+        <button type="button" id="file-reset" class="danger">Start over (new random world)</button>
+        <button type="button" id="file-help">? Help &amp; gestures</button>
+      </div>
+      <input id="file-input" type="file" accept="application/json,.json" hidden />
+      <menu><button value="close">Close</button></menu>
+    </form>
+  </dialog>
+
+  <dialog id="help-dialog">
+    <form method="dialog">
+      <h2>How to use</h2>
+      <ul class="help">
+        <li><b>Navigate:</b> drag with two fingers or the Pan tool, pinch or scroll to zoom. Right/middle mouse drag also pans.</li>
+        <li><b>Territories → Fill:</b> pick a nation, tap land. The fill spreads until it meets the coast, an orange landmark, or a drawn line. Choose <i>Unclaimed</i> to erase.</li>
+        <li><b>Landmark:</b> tap a river or mountain range to toggle it as a border. Checkboxes make every river/range a border.</li>
+        <li><b>Freehand / Lines:</b> draw your own boundary. Lines: tap points, double-tap (or Finish) to end, tap the first point to close a loop.</li>
+        <li><b>Brush:</b> paint territory directly, ignoring borders.</li>
+        <li><b>Resources:</b> a separate layer you can hide. Pen draws freehand; Shape places an icon; Eraser removes what you tap.</li>
+        <li><b>Install:</b> on iPhone/iPad use Share → <i>Add to Home Screen</i>. In Chrome/Edge on Mac or Windows use the install icon in the address bar.</li>
+        <li><b>Shortcuts:</b> Ctrl/⌘+Z undo, Shift for redo, Esc cancel, Enter finish line, +/- zoom, hold Space to pan.</li>
+      </ul>
+      <menu><button value="close" class="accent">Got it</button></menu>
+    </form>
+  </dialog>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
